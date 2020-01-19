@@ -35,7 +35,7 @@ void test_setup(void)
 
 void test_teardown(void) {}
 
-MU_TEST(test_format_line)
+MU_TEST(test_format_buffer)
 {
   buf_T *buf = vimBufferOpen("collateral/indent_test.py", 1, 0);
   int startingLen = vimBufferGetLineCount(buf);
@@ -80,7 +80,7 @@ MU_TEST_SUITE(test_suite)
 {
   MU_SUITE_CONFIGURE(&test_setup, &test_teardown);
 
-  MU_RUN_TEST(test_format_line);
+  MU_RUN_TEST(test_format_buffer);
 }
 
 int main(int argc, char **argv)
