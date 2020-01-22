@@ -44,11 +44,6 @@ OPTIMIZE=MAXSPEED
 # set to yes to make gvim, no for vim
 GUI=no
 
-# set to yes to enable the DLL support (EXPERIMENTAL).
-# Creates vim{32,64}.dll, and stub gvim.exe and vim.exe.
-# "GUI" should be also set to "yes".
-#VIMDLL=yes
-
 # set to no if you do not want to use DirectWrite (DirectX)
 # MinGW-w64 is needed, and ARCH should be set to i686 or x86-64.
 DIRECTX=yes
@@ -429,7 +424,6 @@ endif # RUBY
 
 # See feature.h for a list of options.
 # Any other defines can be included here.
-DEF_GUI=-DFEAT_GUI_MSWIN -DFEAT_CLIPBOARD
 DEFINES=-DWIN32 -DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER) \
 	-DHAVE_PATHDEF -DFEAT_$(FEATURES) -DHAVE_STDINT_H
 ifeq ($(ARCH),x86-64)
@@ -439,7 +433,7 @@ endif
 #>>>>> end of choices
 ###########################################################################
 
-CFLAGS = -I. -Iproto $(DEFINES) -pipe -march=$(ARCH) -Wall
+CFLAGS = -I. -Iproto $(DEFINES) -pipe -march=$(ARCH) -Wall -Wextra -Wno-strict-overflow -Wno-pointer-sign -Wno-unused-parameter -Werror
 CXXFLAGS = -std=gnu++11
 WINDRES_FLAGS = --preprocessor="$(WINDRES_CC) -E -xc" -DRC_INVOKED
 EXTRA_LIBS =
@@ -577,7 +571,6 @@ OBJ = \
 	$(OUTDIR)/getchar.o \
 	$(OUTDIR)/hashtab.o \
 	$(OUTDIR)/indent.o \
-	$(OUTDIR)/insexpand.o \
 	$(OUTDIR)/json.o \
 	$(OUTDIR)/libvim.o \
 	$(OUTDIR)/list.o \
@@ -586,6 +579,7 @@ OBJ = \
 	$(OUTDIR)/memfile.o \
 	$(OUTDIR)/memline.o \
 	$(OUTDIR)/message.o \
+	$(OUTDIR)/message2.o \
 	$(OUTDIR)/misc1.o \
 	$(OUTDIR)/misc2.o \
 	$(OUTDIR)/move.o \
@@ -596,19 +590,18 @@ OBJ = \
 	$(OUTDIR)/os_mswin.o \
 	$(OUTDIR)/os_win32.o \
 	$(OUTDIR)/pathdef.o \
-	$(OUTDIR)/popupmnu.o \
-	$(OUTDIR)/popupwin.o \
 	$(OUTDIR)/quickfix.o \
 	$(OUTDIR)/regexp.o \
 	$(OUTDIR)/screen.o \
+	$(OUTDIR)/sds.o \
 	$(OUTDIR)/search.o \
 	$(OUTDIR)/sha256.o \
 	$(OUTDIR)/sign.o \
+	$(OUTDIR)/state_insert_literal.o \
 	$(OUTDIR)/state_machine.o \
 	$(OUTDIR)/syntax.o \
 	$(OUTDIR)/tag.o \
 	$(OUTDIR)/term.o \
-	$(OUTDIR)/textprop.o \
 	$(OUTDIR)/ui.o \
 	$(OUTDIR)/undo.o \
 	$(OUTDIR)/usercmd.o \
@@ -700,32 +693,11 @@ endif
 LFLAGS += -municode
 
 ifeq ($(VIMDLL),yes)
-VIMEXE := vim$(DEBUG_SUFFIX).exe
-GVIMEXE := gvim$(DEBUG_SUFFIX).exe
- ifeq ($(ARCH),x86-64)
-VIMDLLBASE := vim64$(DEBUG_SUFFIX)
- else
-VIMDLLBASE := vim32$(DEBUG_SUFFIX)
- endif
-TARGET = $(VIMDLLBASE).dll
-LFLAGS += -shared
-EXELFLAGS += -municode
- ifneq ($(DEBUG),yes)
-EXELFLAGS += -s
- endif
-DEFINES += $(DEF_GUI) -DVIMDLL
-OBJ += $(GUIOBJ) $(CUIOBJ)
-OUTDIR = dobj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
-MAIN_TARGET = $(GVIMEXE) $(VIMEXE) $(VIMDLLBASE).dll
-else ifeq ($(GUI),yes)
-TARGET := gvim$(DEBUG_SUFFIX).exe
-DEFINES += $(DEF_GUI)
-OBJ += $(GUIOBJ)
-LFLAGS += -mwindows
-OUTDIR = gobj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
+TARGET := vim$(DEBUG_SUFFIX).exe
+OUTDIR = obj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
 MAIN_TARGET = $(TARGET)
 else
-OBJ += $(CUIOBJ)
+OBJ += $(CUIOBJ)	
 TARGET := vim$(DEBUG_SUFFIX).exe
 OUTDIR = obj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
 MAIN_TARGET = $(TARGET)
@@ -834,7 +806,7 @@ copy-apitest-collateral:
 	ls $(DEST_BIN)/collateral
 
 apitest/%.test.exe: apitest/%.c libvim.a
-	$(CC) -I. -Iproto -L. -Lproto $< $(EXELFLAGS) -o $@ libvim.a -lstdc++ -lole32 -lws2_32 -lnetapi32 -lversion -lcomctl32 -luuid -lgdi32
+	$(CC) -I. -Iproto -L. -Lproto $< $(EXELFLAGS) -Wall -Wno-pointer-sign -Werror -o $@ libvim.a -lstdc++ -lole32 -lws2_32 -lnetapi32 -lversion -lcomctl32 -luuid -lgdi32
 	echo "Copying $@ to $(DEST_BIN)"
 	$(INSTALL_PROG) $@ $(DEST_BIN)
 
@@ -898,7 +870,7 @@ $(OUTDIR)/%.o : %.c $(INCL)
 
 ifeq ($(VIMDLL),yes)
 $(OUTDIR)/vimrcc.o:	vim.rc gvim.exe.mnf version.h gui_w32_rc.h vim.ico
-	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) -UFEAT_GUI_MSWIN \
+	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) \
 	    --input-format=rc --output-format=coff -i vim.rc -o $@
 
 $(OUTDIR)/vimrcg.o:	vim.rc gvim.exe.mnf version.h gui_w32_rc.h vim.ico
@@ -953,7 +925,7 @@ $(OUTDIR)/main.o:	main.c $(INCL) $(CUI_INCL)
 	$(CC) -c $(CFLAGS) main.c -o $@
 
 $(OUTDIR)/os_w32exec.o:	os_w32exe.c $(INCL)
-	$(CC) -c $(CFLAGS) -UFEAT_GUI_MSWIN os_w32exe.c -o $@
+	$(CC) -c $(CFLAGS) os_w32exe.c -o $@
 
 $(OUTDIR)/os_w32exeg.o:	os_w32exe.c $(INCL)
 	$(CC) -c $(CFLAGS) os_w32exe.c -o $@
@@ -989,7 +961,7 @@ ifneq (sh.exe, $(SHELL))
 	@echo 'char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)";' >> pathdef.c
 	@echo 'char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)";' >> pathdef.c
 	@echo 'char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)";' >> pathdef.c
-	@echo 'char_u *all_lflags = (char_u *)"$(LINK) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)";' >> pathdef.c
+	@echo 'char_u *all_lflags = (char_u *)"$(LINK) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid";' >> pathdef.c
 	@echo 'char_u *compiled_user = (char_u *)"$(USERNAME)";' >> pathdef.c
 	@echo 'char_u *compiled_sys = (char_u *)"$(USERDOMAIN)";' >> pathdef.c
 else
@@ -999,7 +971,7 @@ else
 	@echo char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)"; >> pathdef.c
 	@echo char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)"; >> pathdef.c
 	@echo char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)"; >> pathdef.c
-	@echo char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)"; >> pathdef.c
+	@echo char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid"; >> pathdef.c
 	@echo char_u *compiled_user = (char_u *)"$(USERNAME)"; >> pathdef.c
 	@echo char_u *compiled_sys = (char_u *)"$(USERDOMAIN)"; >> pathdef.c
 endif
