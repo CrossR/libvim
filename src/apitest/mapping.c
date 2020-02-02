@@ -1,11 +1,6 @@
 #include "libvim.h"
 #include "minunit.h"
 
-static int updateCount = 0;
-static int lastLnum = 0;
-static int lastLnume = 0;
-static long lastXtra = 0;
-
 void test_setup(void) {
   vimInput("<esc>");
   vimInput("<esc>");
@@ -26,7 +21,9 @@ MU_TEST(test_inoremap_jk) {
   vimInput("a");
   vimInput("b");
 
+  printf("====== J =======\n");
   vimInput("j");
+  printf("====== K =======\n");
   vimInput("k");
 
   char_u *line = vimBufferGetLine(curbuf, 1);
@@ -48,7 +45,7 @@ int main(int argc, char **argv) {
   win_setwidth(5);
   win_setheight(100);
 
-  buf_T *buf = vimBufferOpen("collateral/testfile.txt", 1, 0);
+  vimBufferOpen("collateral/testfile.txt", 1, 0);
 
   MU_RUN_SUITE(test_suite);
   MU_REPORT();
