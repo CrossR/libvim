@@ -17,7 +17,8 @@ MU_TEST(test_inoremap_jk) {
   // Remap 'jk' to leave insert mode
   vimExecute("inoremap jk <esc>");
 
-  vimInput("I");
+  vimInput("i");
+  mu_check(vimGetMode() == INSERT);
   vimInput("a");
   vimInput("b");
 
@@ -29,7 +30,7 @@ MU_TEST(test_inoremap_jk) {
   char_u *line = vimBufferGetLine(curbuf, 1);
 
   printf("LINE: %s\n", line);
-  mu_check((vimGetMode() & NORMAL) == NORMAL);
+  mu_check(vimGetMode() == NORMAL);
   mu_check(strcmp(line, "abThis is the first line of a test file") == 0);
 }
 
