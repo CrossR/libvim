@@ -1981,6 +1981,9 @@ vgetorpeek(int advance)
           mp = NULL;
           max_mlen = 0;
           c1 = typebuf.tb_buf[typebuf.tb_off];
+          printf("c1: %c\n", c1);
+          printf("Timeout: %i, ttimeout: %i\n", p_timeout, p_ttimeout);
+          printf("Looking for mappings: %i\n", (no_mapping == 0 && maphash_valid && (no_zero_mapping == 0 || c1 != '0') && (typebuf.tb_maplen == 0 || (p_remap && (typebuf.tb_noremap[typebuf.tb_off] & (RM_NONE | RM_ABBR)) == 0)) && !(p_paste && (State & (INSERT + CMDLINE))) && !(State == HITRETURN && (c1 == CAR || c1 == ' ')) && State != ASKMORE && State != CONFIRM));
           if (no_mapping == 0 && maphash_valid && (no_zero_mapping == 0 || c1 != '0') && (typebuf.tb_maplen == 0 || (p_remap && (typebuf.tb_noremap[typebuf.tb_off] & (RM_NONE | RM_ABBR)) == 0)) && !(p_paste && (State & (INSERT + CMDLINE))) && !(State == HITRETURN && (c1 == CAR || c1 == ' ')) && State != ASKMORE && State != CONFIRM)
           {
 #ifdef FEAT_LANGMAP
@@ -2000,6 +2003,7 @@ vgetorpeek(int advance)
             if (mp == NULL)
             {
               /* There are no buffer-local mappings. */
+              printf("No buffer local maps...\n");
               mp = mp2;
               mp2 = NULL;
             }
@@ -2026,6 +2030,8 @@ vgetorpeek(int advance)
 			     * matches and it is for the current state.
 			     * Skip ":lmap" mappings if keys were mapped.
 			     */
+              printf("  Map: %s\n", mp->m_keys);
+              printf("Big scary bool: %i\n", (mp->m_keys[0] == c1 && (mp->m_mode & local_State) && ((mp->m_mode & LANGMAP) == 0 || typebuf.tb_maplen == 0)));
               if (mp->m_keys[0] == c1 && (mp->m_mode & local_State) && ((mp->m_mode & LANGMAP) == 0 || typebuf.tb_maplen == 0))
               {
 #ifdef FEAT_LANGMAP
@@ -2050,6 +2056,8 @@ vgetorpeek(int advance)
 #endif
                     break;
                 }
+                
+                printf("Did not break straight after big bool\n");
 
                 /* Don't allow mapping the first byte(s) of a
 				 * multi-byte char.  Happens when mapping
@@ -2068,6 +2076,7 @@ vgetorpeek(int advance)
 				 * - Partly match: mlen == typebuf.tb_len
 				 */
                 keylen = mp->m_keylen;
+                printf("Checking len: %i\n", (mlen == keylen || (mlen == typebuf.tb_len && typebuf.tb_len < keylen)));
                 if (mlen == keylen || (mlen == typebuf.tb_len && typebuf.tb_len < keylen))
                 {
                   /*
@@ -2076,24 +2085,29 @@ vgetorpeek(int advance)
 				     * with K_SNR.
 				     */
                   s = typebuf.tb_noremap + typebuf.tb_off;
+                  printf("Only script-local? : %i \n", (*s == RM_SCRIPT && (mp->m_keys[0] != K_SPECIAL || mp->m_keys[1] != KS_EXTRA || mp->m_keys[2] != (int)KE_SNR)));
                   if (*s == RM_SCRIPT && (mp->m_keys[0] != K_SPECIAL || mp->m_keys[1] != KS_EXTRA || mp->m_keys[2] != (int)KE_SNR))
                     continue;
                   /*
 				     * If one of the typed keys cannot be
 				     * remapped, skip the entry.
 				     */
+                  printf("Starting look from n -> 0: %i\n", mlen);
                   for (n = mlen; --n >= 0;)
                     if (*s++ & (RM_NONE | RM_ABBR))
                       break;
+                  printf("Final n value: %i\n", n);
                   if (n >= 0)
                     continue;
 
+                  printf("keylen: %i, tb_len: %i\n", keylen, typebuf.tb_len);
                   if (keylen > typebuf.tb_len)
                   {
                     if (!timedout && !(mp_match != NULL && mp_match->m_nowait))
                     {
                       /* break at a partly match */
                       keylen = KEYLEN_PART_MAP;
+                      printf("Was partial map\n");
                       break;
                     }
                   }
@@ -2111,6 +2125,8 @@ vgetorpeek(int advance)
                   max_mlen = mlen;
               }
             }
+
+            printf("keylen at end of thing: %i\n", keylen);
 
             /* If no partly match found, use the longest full
 			 * match. */
@@ -2234,6 +2250,7 @@ vgetorpeek(int advance)
 
             /* Partial match: get some more characters.  When a
 			 * matching mapping was found use that one. */
+            printf("mp == NULL: %i , keylen < 0: %i, swap to %i\n", mp == NULL, keylen < 0, KEYLEN_PART_KEY);
             if (mp == NULL || keylen < 0)
               keylen = KEYLEN_PART_KEY;
             else
@@ -2241,6 +2258,7 @@ vgetorpeek(int advance)
           }
 
           /* complete match */
+          printf("The final keylen was %i\n", keylen);
           if (keylen >= 0 && keylen <= typebuf.tb_len)
           {
 #ifdef FEAT_EVAL
@@ -2380,6 +2398,7 @@ vgetorpeek(int advance)
 		 * place does not matter.
 		 */
         c = 0;
+        printf("Next if statement: %i\n", (advance && typebuf.tb_len == 1 && typebuf.tb_buf[typebuf.tb_off] == ESC && !no_mapping && ex_normal_busy == 0 && typebuf.tb_maplen == 0 && (State & INSERT) && (p_timeout || (keylen == KEYLEN_PART_KEY && p_ttimeout)) && (c = inchar(typebuf.tb_buf + typebuf.tb_off + typebuf.tb_len, 3, 25L)) == 0));
         if (advance && typebuf.tb_len == 1 && typebuf.tb_buf[typebuf.tb_off] == ESC && !no_mapping && ex_normal_busy == 0 && typebuf.tb_maplen == 0 && (State & INSERT) && (p_timeout || (keylen == KEYLEN_PART_KEY && p_ttimeout)) && (c = inchar(typebuf.tb_buf + typebuf.tb_off + typebuf.tb_len, 3, 25L)) == 0)
         {
           colnr_T col = 0, vcol;
@@ -2450,6 +2469,8 @@ vgetorpeek(int advance)
           curwin->w_wcol = old_wcol;
           curwin->w_wrow = old_wrow;
         }
+
+        printf("c<0: %i\n", c < 0);
         if (c < 0)
           continue; /* end of input script reached */
 
@@ -2460,12 +2481,14 @@ vgetorpeek(int advance)
         typebuf.tb_len += c;
 
         /* buffer full, don't map */
+        printf("Buffer full: %i\n", (typebuf.tb_len >= typebuf.tb_maplen + MAXMAPLEN));
         if (typebuf.tb_len >= typebuf.tb_maplen + MAXMAPLEN)
         {
           timedout = TRUE;
           continue;
         }
 
+        printf("ex_normal_busy: %i\n", ex_normal_busy > 0);
         if (ex_normal_busy > 0)
         {
           /* No typeahead left and inside ":normal".  Must return
@@ -2564,6 +2587,7 @@ vgetorpeek(int advance)
           wait_time = 0;
 
         wait_tb_len = typebuf.tb_len;
+        printf("advance: %i, wait_time: %li, max_len: %i\n", advance, wait_time, typebuf.tb_buflen - typebuf.tb_off - typebuf.tb_len - 1);
         c = inchar(typebuf.tb_buf + typebuf.tb_off + typebuf.tb_len,
                    typebuf.tb_buflen - typebuf.tb_off - typebuf.tb_len - 1,
                    wait_time);
@@ -2623,6 +2647,8 @@ vgetorpeek(int advance)
         showmode();
     }
   }
+
+  printf("timedout: %i, c == ESC: %i\n", timedout, c == ESC);
   if (timedout && c == ESC)
   {
     char_u nop_buf[3];
@@ -2637,6 +2663,7 @@ vgetorpeek(int advance)
 
   --vgetc_busy;
 
+  printf("final c : %d\n", c);
   return c;
 }
 
@@ -2673,6 +2700,7 @@ inchar(
   int retesc = FALSE; /* return ESC with gotint */
   int script_char;
   int tb_change_cnt = typebuf.tb_change_cnt;
+  printf("Waiting for %lu\n", wait_time);
 
   if (wait_time == -1L || wait_time > 100L) /* flush output before waiting */
   {
@@ -2872,6 +2900,9 @@ int do_map(
     int mode,
     int abbrev) /* not a mapping but an abbreviation */
 {
+  printf("Running do map...\n");
+  printf("Mode is INSERT: %i\n", mode == INSERT);
+  printf("Args: %s\n", arg);
   char_u *keys;
   mapblock_T *mp, **mpp;
   char_u *rhs;
@@ -3422,6 +3453,7 @@ int do_map(
 theend:
   vim_free(keys_buf);
   vim_free(arg_buf);
+  printf("Finished with %i\n", retval);
   return retval;
 }
 

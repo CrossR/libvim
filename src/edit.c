@@ -125,6 +125,7 @@ static linenr_T o_lnum = 0;
 
 void *state_edit_initialize(int cmdchar, int startln, long count)
 {
+  printf("We are in edit init.\n");
   editState_T *context = (editState_T *)alloc(sizeof(editState_T));
   context->cmdchar = cmdchar;
   context->startln = startln;
@@ -372,6 +373,7 @@ void state_edit_cleanup(void *ctx)
 executionStatus_T state_edit_execute(void *ctx, int c)
 {
   editState_T *context = (editState_T *)ctx;
+  printf("Over here in state_edit_exec...\n");
 
   /* If we are coming back ctrl-v, handle that */
 
@@ -1018,6 +1020,7 @@ executionStatus_T state_edit_execute(void *ctx, int c)
 int edit(int cmdchar, int startln, /* if set, insert at start of line */
          long count)
 {
+  printf("Inside edit now, with %c, %i, %ld\n", cmdchar, startln, count);
   int c = 0;
   char_u *ptr;
   int lastc = 0;

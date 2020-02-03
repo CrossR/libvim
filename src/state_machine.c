@@ -71,6 +71,8 @@ void sm_execute_normal(char_u *keys)
   {
     sm_push_normal();
   }
+  
+  printf("State: %i\n", state_current->mode);
 
   sm_execute(keys);
 }
